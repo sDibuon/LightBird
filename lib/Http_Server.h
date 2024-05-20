@@ -9,9 +9,8 @@
 
 typedef struct {
     int socket;
-} Http_Server_t;
+} Http_Server;
 
-typedef Http_Server_t* Http_Server;
 
-Http_Server Create_Http_Server( unsigned short port );
-int Delete_Http_Server( Http_Server* server );
+int init_Http_Server( Http_Server* server, unsigned short port );
+int close_Http_Server( Http_Server* server );

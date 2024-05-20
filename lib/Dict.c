@@ -1,86 +1,68 @@
 #include "Dict.h"
 
-unsigned int hash( const char* key, int module )
+unsigned long long int djb2_hash( const char* string )
 {
-    unsigned int digest = 0;
-    for ( int i = 0 ; key[i] ; i++ ) {
-        digest = (( digest * 31 ) + key[i]) % module;
+    unsigned long long int digest = 5381;
+
+    for ( int i = 0 ; string[i] ; i++ ) {
+        digest = ((digest << 5) + digest) + string[i];
     }
+
     return digest;
 }
 
-KeyValue Create_KeyValue( const char* key, const char* value )
+
+int init_Hash_Table( HashTable* table, unsigned int capacity, double loadfactor )
 {
-    KeyValue new_node = malloc(sizeof(ListNode));
+    table->buckets = calloc( capacity, sizeof(ListNode*) );
+    if ( table->buckets == NULL ) {
+        fprintf( stderr, "Memory allocation failed.\n" );
+        return -1;
+    }
+    table->loadfactor = loadfactor;
+    table->capacity = capacity;
+    table->lenght = 0;
+
+    return 0;
+}
+
+int del_Hash_Table( HashTable* table )
+{
+    for ( int i = 0 ; i < table->capacity ; i++ ) {
+        ListNode* node = table->buckets[i];
+        while ( node != NULL ) {
+            void* next = node->next;
+            free( node->key );
+            free( node->value );
+            free( node );
+            node = next;
+        }
+    }
+}
+
+
+int insert_Hash_Table( HashTable* table, const char* key, const char* value )
+{
+    ListNode* new_node = malloc(sizeof(ListNode));
     if ( new_node == NULL ) {
         fprintf(stderr, "Memory allocation failed.\n");
-        return NULL;
+        return -1;
     }
 
     new_node->key = strdup(key);
     new_node->value = strdup(value);
     new_node->next = NULL;
 
-    return new_node;
-}
+    unsigned int index = djb2_hash( key ) % table->capacity;
 
-void Delete_KeyValue( KeyValue* pair )
-{
-    free( (*pair)->key );
-    free( (*pair)->value );
-    free( *pair );
-}
+    new_node->next = table->buckets[ index ];
+    table->buckets[ index ] = new_node;
+    table->lenght++;
 
-Dict Create_Dict( int capacity )
-{
-    Dict allocate = malloc( sizeof(HashTable) );
-    if ( allocate == NULL ) {
-        fprintf( stderr, "Memory allocation failed.\n" );
-        return NULL;
-    }
+    double load_factor = (double)table->lenght / (double)table->capacity;
 
-    allocate->buckets = calloc( capacity, sizeof(ListNode*) );
-    if ( allocate->buckets == NULL ) {
-        fprintf( stderr, "Memory allocation failed.\n" );
-        free( allocate );
-        return NULL;
-    }
-
-    allocate->capacity = capacity;
-    allocate->size = 0;
-
-    return allocate;
-}
-
-void Delete_Dict( Dict* dict )
-{
-    if ( *dict == NULL )     return;
-
-    for ( int i = 0 ; i < (*dict)->capacity ; i++ ) {
-        KeyValue node = (*dict)->buckets[i];
-        while ( node != NULL ) {
-            void* next = node->next;
-            Delete_KeyValue( &node );
-            node = next;
-        }
-    }
-
-    free( *dict );
-    *dict = NULL;
-}
-
-int Insert_On_Dict( Dict* dict, KeyValue content )
-{
-    if ( *dict == NULL )     return -1;
-
-    unsigned int index = hash( content->key, (*dict)->capacity );
-
-    content->next = (*dict)->buckets[index];
-    (*dict)->buckets[index] = content;
-    (*dict)->size++;
-
-    if ( (double)(*dict)->size / (double)(*dict)->capacity > LOFACTOR ) {
-        if ( Update_Dict_Capacity( dict ) != 0 ) {
+    if ( load_factor > PERCENT_TO_DOUBLE( table->loadfactor ) ) {
+        if ( update_Capacity_Hash_Table( table ) != 0 ) {
             fprintf( stderr, "Error during updating of dict.\n" );
             return -1;
         }
@@ -89,44 +71,45 @@ int Insert_On_Dict( Dict* dict, KeyValue content )
     return 0;
 }
 
-int Update_Dict_Capacity( Dict* dict )
+const char* search_Hash_Table( HashTable* table, const char* key )
 {
-    if ( *dict == NULL )    return -1;
+    unsigned int index = djb2_hash( key ) % table->capacity;
 
-    Dict new = Create_Dict( (*dict)->capacity * 2 );
-
-    if ( new == NULL ) {
-        fprintf( stderr, "Error on creation of new dict to update the oldone.\n" );
-        return -1;
-    }
-
-    for ( int i = 0 ; i < (*dict)->capacity ; i++ ) {
-        KeyValue node =  (*dict)->buckets[i];
-        while ( node != NULL ) {
-            void* cache = node->next;
-            Insert_On_Dict( &new, node );
-            node = cache;
-        }
-        (*dict)->buckets[i] = NULL;
-    }
-
-    Delete_Dict( dict );
-    *dict = new;
-
-    return 0;
-}
-
-KeyValue Search_On_Dict( Dict* dict, const char* key )
-{
-    unsigned int index = hash( key, (*dict)->capacity );
-
-    KeyValue node = (*dict)->buckets[index];
+    ListNode* node = table->buckets[index];
 
     while ( node != NULL ) {
-        if ( strcmp( node->key, key ) == 0 )    return node;
+        if ( strcmp( node->key, key ) == 0 )    return node->value;
         node = node->next;
     }
 
     return NULL;
 }
 
+int update_Capacity_Hash_Table( HashTable* table )
+{
+    HashTable old_hashtable = *table;
+
+    if ( init_Hash_Table( table, old_hashtable.capacity * 2 ,old_hashtable.loadfactor ) == -1 ) {
+        fprintf( stderr, "Error on creation of new dict to update the oldone.\n" );
+        return -1;
+    }
+
+    for ( int i = 0 ; i < old_hashtable.capacity ; i++ ) {
+        ListNode* node = old_hashtable.buckets[i];
+        while ( node != NULL ) {
+            void* cache = node->next;
+            if ( insert_Hash_Table( table, node->key, node->value ) == -1 ) {
+                fprintf( stderr, "Error insert data to table\n" );
+                return -1;
+            }
+            node = cache;
+        }
+    }
+
+    if ( del_Hash_Table( &old_hashtable ) == -1 ) {
+        fprintf( stderr, "Error delete old table\n" );
+        return -1;
+    }
+
+    return 0;
+}

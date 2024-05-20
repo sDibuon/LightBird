@@ -4,10 +4,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define PERCENT(x) ( (double)x / (double)100 )
 
+#define PERCENT_TO_DOUBLE(x) ((double)((double)x/(double)100))
 
-#define LOFACTOR PERCENT(75)
 
 typedef struct ListNode {
     char* key;
@@ -17,25 +16,16 @@ typedef struct ListNode {
 
 typedef struct {
     ListNode** buckets;
-    int size;
-    int capacity;
+    unsigned int lenght;
+    unsigned int capacity;
+    double loadfactor;
 } HashTable;
 
-typedef HashTable* Dict;
-typedef ListNode* KeyValue;
 
-unsigned int hash( const char* key, int module );
+unsigned long long int djb2_hash( const char* string );
 
-KeyValue Create_KeyValue( const char* key, const char* value );
-
-void Delete_KeyValue( KeyValue* pair );
-
-Dict Create_Dict( int capacity );
-
-void Delete_Dict( Dict* dict );
-
-int Insert_On_Dict( Dict* dict, KeyValue content );
-
-int Update_Dict_Capacity( Dict* dict );
-
-KeyValue Search_On_Dict( Dict* dict, const char* key );
+int init_Hash_Table( HashTable* table, unsigned int capacity, double loadfactor );
+int del_Hash_Table( HashTable* table );
+int update_Capacity_Hash_Table( HashTable* table );
+const char* search_Hash_Table( HashTable* table, const char* key );
+int insert_Hash_Table( HashTable* table, const char* key, const char* value );
