@@ -32,3 +32,30 @@ int close_Http_Server( Http_Server* server )
 
     return 0;
 }
+
+int listen_Http_Server( Http_Server* server, int bufflenght, void (*func_handler)(int,char*,int) )
+{
+    if ( listen( server->socket, bufflenght ) != 0 ) {
+        fprintf( stderr, "Error listen socket.\n" );
+        return -1;
+    }
+
+    for ( ; ; ) {
+
+        char buffer[4096] = {0};
+
+        struct sockaddr_in client_address;
+        int client_addrlen = sizeof(client_address);
+        int client_socket = accept( server->socket, (struct sockaddr*)&client_address, (socklen_t*)&client_addrlen );
+
+        // TODO: parse request
+
+        int bytes_recived = recv( client_socket, buffer, 4096, 0 );
+
+        func_handler( client_socket, buffer, bytes_recived );
+
+        close( client_socket );
+    }
+
+    return 0;
+}

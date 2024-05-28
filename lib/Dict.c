@@ -38,6 +38,8 @@ int del_Hash_Table( HashTable* table )
             node = next;
         }
     }
+    free( table->buckets );
+    return 0;
 }
 
 
@@ -52,6 +54,11 @@ int insert_Hash_Table( HashTable* table, const char* key, const char* value )
     new_node->key = strdup(key);
     new_node->value = strdup(value);
     new_node->next = NULL;
+
+    if ( new_node->key == NULL || new_node->value == NULL ) {
+        fprintf( stderr, "Error allocate memory for keyvalue" );
+        return -2;
+    }
 
     unsigned int index = djb2_hash( key ) % table->capacity;
 
